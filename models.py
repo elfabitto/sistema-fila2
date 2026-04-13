@@ -48,7 +48,9 @@ class Queue(db.Model):
 class Attendance(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    service_type = db.Column(db.String(30), nullable=True)  # Consulta, Troca de Titularidade, Criação de Matrícula
+    service_type = db.Column(db.String(30), nullable=True)  # CAD, VER, AGU, ESG, SOC
+    matricula = db.Column(db.String(30), nullable=True)      # Matrícula do cliente (opcional)
+    observacao = db.Column(db.String(500), nullable=True)    # Observação do atendimento
     started_at = db.Column(db.DateTime, default=get_brt_time)
     finished_at = db.Column(db.DateTime, nullable=True)
     duration_seconds = db.Column(db.Integer, nullable=True)

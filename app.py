@@ -3,6 +3,10 @@
 import eventlet
 eventlet.monkey_patch()
 
+# Carrega variáveis do .env (ambiente local)
+from dotenv import load_dotenv
+load_dotenv()
+
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_socketio import SocketIO, emit
@@ -27,7 +31,7 @@ def format_duration(seconds):
     return f"{s}s"
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'chave-secreta-fila'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chave-secreta-fila-dev')
 # Usar caminho absoluto para evitar erros de diretório
 basedir = os.path.abspath(os.path.dirname(__file__))
 
@@ -79,6 +83,12 @@ with app.app_context():
             db.session.execute(db.text(
                 "ALTER TABLE attendance ADD COLUMN IF NOT EXISTS service_type VARCHAR(30)"
             ))
+            db.session.execute(db.text(
+                "ALTER TABLE attendance ADD COLUMN IF NOT EXISTS matricula VARCHAR(30)"
+            ))
+            db.session.execute(db.text(
+                "ALTER TABLE attendance ADD COLUMN IF NOT EXISTS observacao VARCHAR(500)"
+            ))
         else:
             # SQLite: verificar via PRAGMA antes de alterar
             # Tabela user
@@ -123,19 +133,14 @@ with app.app_context():
         print(f"[migração] aviso: {e}")
 
     usuarios_iniciais = [
-        {'username': 'Jarbas', 'is_admin': False},
-        {'username': 'Mariana', 'is_admin': False},
-        {'username': 'Eliene', 'is_admin': False},
-        {'username': 'Lorena', 'is_admin': True},
-        {'username': 'Lucas', 'is_admin': False},
-        {'username': 'Carla', 'is_admin': False},
-        {'username': 'Cristiane', 'is_admin': False},
-        {'username': 'Julio', 'is_admin': False},
-        {'username': 'Marlon', 'is_admin': False},
-        {'username': 'Antonio', 'is_admin': False},
-        {'username': 'Fabio', 'is_admin': False},
-        {'username': 'Ingrid', 'is_admin': False},
-        {'username': 'Eduarda', 'is_admin': False}
+        {'username': 'Barbara',   'is_admin': False},
+        {'username': 'Cristiano', 'is_admin': True},
+        {'username': 'Danilo',    'is_admin': False},
+        {'username': 'Elen',      'is_admin': False},
+        {'username': 'Gabriela',  'is_admin': False},
+        {'username': 'Jose',      'is_admin': False},
+        {'username': 'Victoria',  'is_admin': False},
+        {'username': 'Fabio',     'is_admin': True},
     ]
     
     for u_data in usuarios_iniciais:
@@ -145,10 +150,6 @@ with app.app_context():
             novo_usuario = User(username=u_data['username'], password=senha, is_admin=u_data['is_admin'])
             db.session.add(novo_usuario)
             
-    # Criar também o admin genérico caso não exista, por segurança
-    if not User.query.filter_by(username='admin').first():
-        db.session.add(User(username='admin', password='123', is_admin=True))
-        
     db.session.commit()
 
 login_manager = LoginManager()
@@ -268,11 +269,13 @@ def admin_remove_from_queue(user_id):
         socketio.emit('update_queue')
     return redirect(url_for('admin'))
 
-# Mapeamento de tipos de atendimento
+# Tipos de atendimento: código -> label
 SERVICE_TYPES = {
-    'Consulta': 'CNS',
-    'Troca de Titularidade': 'TRT',
-    'Criação de Matrícula': 'CRI',
+    'CAD': 'Cadastral Interna',
+    'VER': 'Verificação de Campo',
+    'AGU': 'Implantação de Água',
+    'ESG': 'Implantação de Esgoto',
+    'SOC': 'Tarifa Social',
 }
 
 @app.route('/start_task', methods=['POST'])
@@ -282,13 +285,21 @@ def start_task():
     if entry and entry.status == 'Disponível':
         service_type = request.form.get('service_type', '')
         if service_type not in SERVICE_TYPES:
-            service_type = 'Consulta'  # fallback
+            service_type = 'CAD'  # fallback
         
+        matricula = request.form.get('matricula', '').strip() or None
+        observacao = request.form.get('observacao', '').strip() or None
+
         entry.status = 'Analisando'
         entry.service_type = service_type
         
         # Criar registro de atendimento
-        attendance = Attendance(user_id=current_user.id, service_type=service_type)
+        attendance = Attendance(
+            user_id=current_user.id,
+            service_type=service_type,
+            matricula=matricula,
+            observacao=observacao
+        )
         db.session.add(attendance)
         db.session.commit()
         

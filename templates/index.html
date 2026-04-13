@@ -39,41 +39,25 @@
     flex-shrink: 0;
   }
 
-  .badge-cns {
-    background: rgba(37, 99, 235, 0.12);
-    color: #2563eb;
-    border: 1px solid rgba(37, 99, 235, 0.25);
-  }
+  /* CAD – Cadastral Interna (AZUL) */
+  .badge-cad { background: rgba(37,99,235,0.12); color:#2563eb; border:1px solid rgba(37,99,235,0.25); }
+  [data-theme="dark"] .badge-cad { color:#60a5fa; background:rgba(96,165,250,0.12); border-color:rgba(96,165,250,0.25); }
 
-  .badge-trt {
-    background: rgba(217, 119, 6, 0.12);
-    color: #d97706;
-    border: 1px solid rgba(217, 119, 6, 0.25);
-  }
+  /* VER – Verificação de Campo (AMARELO) */
+  .badge-ver { background: rgba(202,138,4,0.12); color:#ca8a04; border:1px solid rgba(202,138,4,0.25); }
+  [data-theme="dark"] .badge-ver { color:#fbbf24; background:rgba(251,191,36,0.12); border-color:rgba(251,191,36,0.25); }
 
-  .badge-cri {
-    background: rgba(5, 150, 105, 0.12);
-    color: #059669;
-    border: 1px solid rgba(5, 150, 105, 0.25);
-  }
+  /* AGU – Implantação de Água (AZUL CLARO) */
+  .badge-agu { background: rgba(8,145,178,0.12); color:#0891b2; border:1px solid rgba(8,145,178,0.25); }
+  [data-theme="dark"] .badge-agu { color:#38bdf8; background:rgba(56,189,248,0.12); border-color:rgba(56,189,248,0.25); }
 
-  [data-theme="dark"] .badge-cns {
-    color: #60a5fa;
-    background: rgba(96, 165, 250, 0.12);
-    border-color: rgba(96, 165, 250, 0.25);
-  }
+  /* ESG – Implantação de Esgoto (VINHO) */
+  .badge-esg { background: rgba(136,19,55,0.12); color:#881337; border:1px solid rgba(136,19,55,0.25); }
+  [data-theme="dark"] .badge-esg { color:#fb7185; background:rgba(251,113,133,0.12); border-color:rgba(251,113,133,0.25); }
 
-  [data-theme="dark"] .badge-trt {
-    color: #fbbf24;
-    background: rgba(251, 191, 36, 0.12);
-    border-color: rgba(251, 191, 36, 0.25);
-  }
-
-  [data-theme="dark"] .badge-cri {
-    color: #34d399;
-    background: rgba(52, 211, 153, 0.12);
-    border-color: rgba(52, 211, 153, 0.25);
-  }
+  /* SOC – Tarifa Social (VERDE) */
+  .badge-soc { background: rgba(22,163,74,0.12); color:#16a34a; border:1px solid rgba(22,163,74,0.25); }
+  [data-theme="dark"] .badge-soc { color:#4ade80; background:rgba(74,222,128,0.12); border-color:rgba(74,222,128,0.25); }
 
   /* ── Hora de entrada na fila ── */
   .fila-hora {
@@ -167,34 +151,61 @@
     text-align: center;
   }
 
-  .type-opt-badge.cns {
-    background: rgba(37, 99, 235, 0.15);
-    color: #2563eb;
-  }
+  /* type-opt-badge por código */
+  .type-opt-badge.cad { background: rgba(37,99,235,0.15);  color: #2563eb; }
+  .type-opt-badge.ver { background: rgba(202,138,4,0.15);  color: #ca8a04; }
+  .type-opt-badge.agu { background: rgba(8,145,178,0.15);  color: #0891b2; }
+  .type-opt-badge.esg { background: rgba(136,19,55,0.15);  color: #881337; }
+  .type-opt-badge.soc { background: rgba(22,163,74,0.15);  color: #16a34a; }
 
-  .type-opt-badge.trt {
-    background: rgba(217, 119, 6, 0.15);
-    color: #d97706;
-  }
+  [data-theme="dark"] .type-opt-badge.cad { background: rgba(96,165,250,0.15);  color: #60a5fa; }
+  [data-theme="dark"] .type-opt-badge.ver { background: rgba(251,191,36,0.15);  color: #fbbf24; }
+  [data-theme="dark"] .type-opt-badge.agu { background: rgba(56,189,248,0.15);  color: #38bdf8; }
+  [data-theme="dark"] .type-opt-badge.esg { background: rgba(251,113,133,0.15); color: #fb7185; }
+  [data-theme="dark"] .type-opt-badge.soc { background: rgba(74,222,128,0.15);  color: #4ade80; }
 
-  .type-opt-badge.cri {
-    background: rgba(5, 150, 105, 0.15);
-    color: #059669;
+  /* ── Campos do modal ── */
+  .modal-field {
+    margin-bottom: 1rem;
   }
-
-  [data-theme="dark"] .type-opt-badge.cns {
-    background: rgba(96, 165, 250, 0.15);
-    color: #60a5fa;
+  .modal-field-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+    display: block;
   }
-
-  [data-theme="dark"] .type-opt-badge.trt {
-    background: rgba(251, 191, 36, 0.15);
-    color: #fbbf24;
+  .modal-field-label span {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.62rem;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--muted);
+    opacity: 0.7;
   }
-
-  [data-theme="dark"] .type-opt-badge.cri {
-    background: rgba(52, 211, 153, 0.15);
-    color: #34d399;
+  .modal-input, .modal-textarea {
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.84rem;
+    outline: none;
+    margin: 0;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+  }
+  .modal-textarea {
+    resize: vertical;
+    min-height: 64px;
+  }
+  .modal-input:focus, .modal-textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
   }
 
   .type-opt-label {
@@ -306,8 +317,11 @@
   </div>
 
   <div style="text-align:center">
-    <form action="{{ url_for('leave_queue') }}" method="POST">
+    <form action="{{ url_for('leave_queue') }}" method="POST" style="display:inline;">
       <button type="submit" class="btn-sair-fila">Sair da fila</button>
+    </form>
+    <form action="{{ url_for('skip_task') }}" method="POST" style="display:inline; margin-left:0.5rem;">
+      <button type="submit" class="btn-skip">PULAR</button>
     </form>
   </div>
 
@@ -359,13 +373,7 @@
           {% if entry.user_id == current_user.id %}(Você){% endif %}
           <!-- Badge de tipo de atendimento -->
           {% if entry.status == 'Analisando' and entry.service_type %}
-          {% if entry.service_type == 'Consulta' %}
-          <span class="badge-type badge-cns">CNS</span>
-          {% elif entry.service_type == 'Troca de Titularidade' %}
-          <span class="badge-type badge-trt">TRT</span>
-          {% elif entry.service_type == 'Criação de Matrícula' %}
-          <span class="badge-type badge-cri">CRI</span>
-          {% endif %}
+          <span class="badge-type badge-{{ entry.service_type.lower() }}">{{ entry.service_type }}</span>
           {% endif %}
         </div>
         <div class="fila-hora">⏱ {{ entry.first_entered_at.strftime('%H:%M') if entry.first_entered_at else (entry.entered_at.strftime('%H:%M') if entry.entered_at else '') }}</div>
@@ -393,32 +401,59 @@
 
 <!-- MODAL DE TIPO DE ATENDIMENTO -->
 <div class="modal-overlay" id="modal-tipo">
-  <div class="modal-box">
+  <div class="modal-box" style="width:min(92vw,440px);">
     <div class="modal-title">Iniciar atendimento</div>
     <div class="modal-subtitle">Qual o tipo de atendimento?</div>
 
     <div class="type-options">
-      <div class="type-opt selected" data-type="Consulta">
-        <span class="type-opt-badge cns">CNS</span>
-        <span class="type-opt-label">Consulta</span>
+      <div class="type-opt selected" data-type="CAD">
+        <span class="type-opt-badge cad">CAD</span>
+        <span class="type-opt-label">Cadastral Interna</span>
       </div>
-      <div class="type-opt" data-type="Troca de Titularidade">
-        <span class="type-opt-badge trt">TRT</span>
-        <span class="type-opt-label">Troca de Titularidade</span>
+      <div class="type-opt" data-type="VER">
+        <span class="type-opt-badge ver">VER</span>
+        <span class="type-opt-label">Verificação de Campo</span>
       </div>
-      <div class="type-opt" data-type="Criação de Matrícula">
-        <span class="type-opt-badge cri">CRI</span>
-        <span class="type-opt-label">Criação de Matrícula</span>
+      <div class="type-opt" data-type="AGU">
+        <span class="type-opt-badge agu">AGU</span>
+        <span class="type-opt-label">Implantação de Água</span>
+      </div>
+      <div class="type-opt" data-type="ESG">
+        <span class="type-opt-badge esg">ESG</span>
+        <span class="type-opt-label">Implantação de Esgoto</span>
+      </div>
+      <div class="type-opt" data-type="SOC">
+        <span class="type-opt-badge soc">SOC</span>
+        <span class="type-opt-label">Tarifa Social</span>
       </div>
     </div>
 
-    <div class="modal-actions">
-      <button type="button" class="btn-modal-cancel" id="btn-modal-cancel">CANCELAR</button>
-      <form action="{{ url_for('start_task') }}" method="POST" id="form-start-task" style="margin:0;">
-        <input type="hidden" name="service_type" id="input-service-type" value="Consulta">
+    <form action="{{ url_for('start_task') }}" method="POST" id="form-start-task" style="margin:0;">
+      <input type="hidden" name="service_type" id="input-service-type" value="CAD">
+
+      <!-- Matrícula (opcional) -->
+      <div class="modal-field">
+        <label class="modal-field-label" for="input-matricula">
+          Matrícula <span>(opcional)</span>
+        </label>
+        <input class="modal-input" type="text" id="input-matricula" name="matricula"
+               placeholder="Número da matrícula..." maxlength="30">
+      </div>
+
+      <!-- Observação (opcional) -->
+      <div class="modal-field">
+        <label class="modal-field-label" for="input-observacao">
+          Observação <span>(opcional)</span>
+        </label>
+        <textarea class="modal-textarea" id="input-observacao" name="observacao"
+                  placeholder="Alguma observação sobre o atendimento..." maxlength="500" rows="2"></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-modal-cancel" id="btn-modal-cancel">CANCELAR</button>
         <button type="submit" class="btn-modal-confirm">INICIAR</button>
-      </form>
-    </div>
+      </div>
+    </form>
   </div>
 </div>
 

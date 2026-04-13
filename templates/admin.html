@@ -314,23 +314,16 @@
     white-space: nowrap;
   }
 
-  .badge-cns {
-    background: rgba(37, 99, 235, 0.12);
-    color: #2563eb;
-    border: 1px solid rgba(37, 99, 235, 0.25);
-  }
-
-  .badge-trt {
-    background: rgba(217, 119, 6, 0.12);
-    color: #d97706;
-    border: 1px solid rgba(217, 119, 6, 0.25);
-  }
-
-  .badge-cri {
-    background: rgba(5, 150, 105, 0.12);
-    color: #059669;
-    border: 1px solid rgba(5, 150, 105, 0.25);
-  }
+  .badge-cad { background:rgba(37,99,235,0.12);  color:#2563eb; border:1px solid rgba(37,99,235,0.25); }
+  .badge-ver { background:rgba(202,138,4,0.12);  color:#ca8a04; border:1px solid rgba(202,138,4,0.25); }
+  .badge-agu { background:rgba(8,145,178,0.12);  color:#0891b2; border:1px solid rgba(8,145,178,0.25); }
+  .badge-esg { background:rgba(136,19,55,0.12);  color:#881337; border:1px solid rgba(136,19,55,0.25); }
+  .badge-soc { background:rgba(22,163,74,0.12);  color:#16a34a; border:1px solid rgba(22,163,74,0.25); }
+  [data-theme="dark"] .badge-cad { color:#60a5fa; background:rgba(96,165,250,0.12); border-color:rgba(96,165,250,0.25); }
+  [data-theme="dark"] .badge-ver { color:#fbbf24; background:rgba(251,191,36,0.12); border-color:rgba(251,191,36,0.25); }
+  [data-theme="dark"] .badge-agu { color:#38bdf8; background:rgba(56,189,248,0.12); border-color:rgba(56,189,248,0.25); }
+  [data-theme="dark"] .badge-esg { color:#fb7185; background:rgba(251,113,133,0.12); border-color:rgba(251,113,133,0.25); }
+  [data-theme="dark"] .badge-soc { color:#4ade80; background:rgba(74,222,128,0.12); border-color:rgba(74,222,128,0.25); }
 
   /* ─────────── 2 COLUNAS ─────────── */
   .two-col {
@@ -782,13 +775,7 @@
                 <span style="font-weight:500;">{{ entry.user.username if entry.user else 'Desconhecido' }}</span>
                 <!-- Badge tipo de atendimento -->
                 {% if entry.status == 'Analisando' and entry.service_type %}
-                {% if entry.service_type == 'Consulta' %}
-                <span class="badge-type badge-cns">CNS</span>
-                {% elif entry.service_type == 'Troca de Titularidade' %}
-                <span class="badge-type badge-trt">TRT</span>
-                {% elif entry.service_type == 'Criação de Matrícula' %}
-                <span class="badge-type badge-cri">CRI</span>
-                {% endif %}
+                <span class="badge-type badge-{{ entry.service_type.lower() }}">{{ entry.service_type }}</span>
                 {% endif %}
               </div>
             </td>
@@ -846,12 +833,8 @@
             <tr>
               <td class="hist-name">{{ record.colaborador.username }}</td>
               <td>
-                {% if record.service_type == 'Consulta' %}
-                <span class="badge-type badge-cns">CNS</span>
-                {% elif record.service_type == 'Troca de Titularidade' %}
-                <span class="badge-type badge-trt">TRT</span>
-                {% elif record.service_type == 'Criação de Matrícula' %}
-                <span class="badge-type badge-cri">CRI</span>
+                {% if record.service_type %}
+                <span class="badge-type badge-{{ record.service_type.lower() }}">{{ record.service_type }}</span>
                 {% else %}
                 <span style="color:var(--muted);font-size:0.7rem;">—</span>
                 {% endif %}
