@@ -1,0 +1,935 @@
+{% extends "base.html" %}
+
+{% block extra_styles %}
+<style>
+  /* ── Calendário visível no tema claro ── */
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.45;
+    transition: opacity 0.15s;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 0.85;
+  }
+
+  /* ─────────── LAYOUT ─────────── */
+  .admin-wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 2rem 1.25rem 3rem;
+  }
+
+  /* ─────────── PAGE HEADER ─────────── */
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .page-title {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+
+  .page-title span {
+    color: var(--accent);
+  }
+
+  /* ─────────── EXPORT FORM ─────────── */
+  .export-form {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.5rem 0.75rem;
+    box-shadow: var(--shadow-sm);
+    flex-wrap: wrap;
+  }
+
+  .export-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .export-date {
+    padding: 0.26rem 0.5rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.18s;
+  }
+
+  .export-date:focus {
+    border-color: var(--accent);
+  }
+
+  .export-sep {
+    color: var(--muted);
+    font-size: 0.65rem;
+  }
+
+  .btn-export {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.32rem 0.85rem;
+    background: var(--accent);
+    color: #fff;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.07em;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.18s;
+    text-decoration: none;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px var(--accent-glow);
+  }
+
+  .btn-export:hover {
+    background: var(--accent-mid);
+    box-shadow: 0 4px 14px var(--accent-glow);
+    transform: translateY(-1px);
+  }
+
+  /* ─────────── SECTION TITLE ─────────── */
+  .section-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.16em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ─────────── STATS CARDS ─────────── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+    gap: 0.7rem;
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.95rem 1.1rem;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.18s, transform 0.18s;
+  }
+
+  .stat-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+
+  .stat-card-name {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-mid);
+    margin-bottom: 0.6rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .stat-card-nums {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  .stat-num-block {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .stat-num-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.56rem;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+    margin-bottom: 0.12rem;
+  }
+
+  .stat-num-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 1.55rem;
+    font-weight: 300;
+    line-height: 1;
+  }
+
+  .stat-num-val.purple {
+    color: var(--accent);
+  }
+
+  .stat-num-val.orange {
+    color: var(--warn);
+  }
+
+  /* ─────────── CARD PANEL ─────────── */
+  .card-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 2rem;
+    overflow: hidden;
+  }
+
+  .panel-head {
+    padding: 0.75rem 1.1rem 0.6rem;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ─────────── TABELAS ─────────── */
+  .admin-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .admin-table th {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.57rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    padding: 0.45rem 0.65rem;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    text-transform: uppercase;
+    background: var(--surface2);
+  }
+
+  .admin-table td {
+    padding: 0.55rem 0.65rem;
+    font-size: 0.8rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  .admin-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .admin-table tbody tr {
+    transition: background 0.14s;
+  }
+
+  .admin-table tbody tr:hover {
+    background: var(--surface2);
+  }
+
+  /* stat inline (daily) */
+  .stat-inline {
+    display: flex;
+    flex-direction: column;
+    gap: 0.08rem;
+  }
+
+  .stat-inline-main {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  .stat-inline-skip {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--warn);
+  }
+
+  /* ─────────── BADGES ─────────── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.57rem;
+    letter-spacing: 0.05em;
+    padding: 0.16rem 0.52rem;
+    border-radius: 99px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .badge-vez {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: 1px solid rgba(124, 58, 237, 0.22);
+  }
+
+  .badge-analis {
+    background: var(--warn-dim);
+    color: var(--warn);
+    border: 1px solid rgba(217, 119, 6, 0.22);
+  }
+
+  .badge-aguard {
+    background: var(--surface2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+
+  /* badges de tipo de atendimento */
+  .badge-type {
+    display: inline-flex;
+    align-items: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.54rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    padding: 0.12rem 0.44rem;
+    border-radius: 5px;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .badge-cns {
+    background: rgba(37, 99, 235, 0.12);
+    color: #2563eb;
+    border: 1px solid rgba(37, 99, 235, 0.25);
+  }
+
+  .badge-trt {
+    background: rgba(217, 119, 6, 0.12);
+    color: #d97706;
+    border: 1px solid rgba(217, 119, 6, 0.25);
+  }
+
+  .badge-cri {
+    background: rgba(5, 150, 105, 0.12);
+    color: #059669;
+    border: 1px solid rgba(5, 150, 105, 0.25);
+  }
+
+  /* ─────────── 2 COLUNAS ─────────── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  @media (max-width: 640px) {
+    .two-col {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* ─────────── HISTÓRICO ─────────── */
+  .history-scroll {
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .hist-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .hist-table th {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+    padding: 0.42rem 0.65rem;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    background: var(--surface2);
+    position: sticky;
+    top: 0;
+  }
+
+  .hist-table td {
+    padding: 0.5rem 0.65rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  .hist-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .hist-table tbody tr {
+    transition: background 0.12s;
+  }
+
+  .hist-table tbody tr:hover {
+    background: var(--surface2);
+  }
+
+  .hist-name {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--text);
+  }
+
+  .hist-inicio {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.66rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .hist-duracao {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  /* ─────────── USUÁRIOS ─────────── */
+  .users-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    margin-bottom: 2rem;
+  }
+
+  .users-head {
+    padding: 0.75rem 1.1rem 0.6rem;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.57rem;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .user-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.7rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+  }
+
+  .user-row:last-of-type {
+    border-bottom: none;
+  }
+
+  .user-row:hover {
+    background: var(--surface2);
+  }
+
+  .u-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--accent-dim);
+    border: 1.5px solid rgba(124, 58, 237, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    font-size: 0.7rem;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .u-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .u-nome {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .u-email {
+    font-size: 0.67rem;
+    color: var(--muted);
+    margin-top: 0.04rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .u-actions {
+    display: flex;
+    gap: 0.4rem;
+    flex-shrink: 0;
+  }
+
+  .btn-detail {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.05em;
+    padding: 0.22rem 0.58rem;
+    background: var(--accent-dim);
+    border: 1px solid rgba(124, 58, 237, 0.22);
+    color: var(--accent);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+    display: inline-block;
+  }
+
+  .btn-detail:hover {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .btn-rem {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    padding: 0.22rem 0.58rem;
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-rem:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: var(--danger-dim);
+  }
+
+  /* ─────────── CRIAR USUÁRIO ─────────── */
+  .create-section {
+    padding: 1rem 1.1rem;
+    border-top: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .create-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.55rem;
+  }
+
+  @media (max-width: 640px) {
+    .form-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .form-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .form-input {
+    padding: 0.48rem 0.65rem;
+    font-size: 0.8rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    outline: none;
+    transition: border-color 0.18s, box-shadow 0.18s;
+    margin: 0;
+    width: 100%;
+  }
+
+  .form-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+  }
+
+  .form-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.7rem;
+  }
+
+  .check-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    color: var(--text-mid);
+    cursor: pointer;
+  }
+
+  .check-label input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--accent);
+    margin: 0;
+  }
+
+  .btn-criar {
+    padding: 0.48rem 1.1rem;
+    background: var(--accent);
+    color: #fff;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.64rem;
+    letter-spacing: 0.07em;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.18s;
+    box-shadow: 0 2px 8px var(--accent-glow);
+  }
+
+  .btn-criar:hover {
+    background: var(--accent-mid);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px var(--accent-glow);
+  }
+
+  /* empty state */
+  .empty-state {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-style: italic;
+  }
+
+  /* queue pos col */
+  .queue-pos {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+    width: 20px;
+    text-align: center;
+  }
+
+  .queue-time {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-wrap">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <h1 class="page-title">Painel <span>Admin</span></h1>
+    <form action="{{ url_for('export_xlsx') }}" method="GET" class="export-form">
+      <span class="export-label">Exportar de:</span>
+      <input type="date" name="start_date" class="export-date" id="start_date" required>
+      <span class="export-sep">→</span>
+      <input type="date" name="end_date" class="export-date" id="end_date" required>
+      <button type="submit" class="btn-export">
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1v9m0 0L5 7m3 3 3-3M2 12v1a1 1 0 001 1h10a1 1 0 001-1v-1" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        XLSX
+      </button>
+    </form>
+  </div>
+
+  <!-- ATENDIMENTOS POR COLABORADOR -->
+  {% if stats %}
+  <p class="section-title">Atendimentos por colaborador</p>
+  <div class="stats-grid">
+    {% for stat in stats %}
+    <div class="stat-card">
+      <div class="stat-card-name">{{ stat.username }}</div>
+      <div class="stat-card-nums">
+        <div class="stat-num-block">
+          <span class="stat-num-label">Concluídos</span>
+          <span class="stat-num-val purple">{{ stat.count }}</span>
+        </div>
+        <div class="stat-num-block">
+          <span class="stat-num-label">Pulados</span>
+          <span class="stat-num-val orange">{{ stat.skip_count }}</span>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ESTATÍSTICAS DIÁRIAS -->
+  {% if daily_stats %}
+  <p class="section-title">Estatísticas por período</p>
+  <div class="card-panel">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Colaborador</th>
+          <th>Hoje</th>
+          <th>Semana</th>
+          <th>Mês</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for stat in daily_stats %}
+        <tr>
+          <td style="font-weight: 600;">{{ stat.username }}</td>
+          <td>
+            <div class="stat-inline">
+              <span class="stat-inline-main">{{ stat.today }}</span>
+              <span class="stat-inline-skip">↩ {{ stat.today_skips }}</span>
+            </div>
+          </td>
+          <td>
+            <div class="stat-inline">
+              <span class="stat-inline-main">{{ stat.this_week }}</span>
+              <span class="stat-inline-skip">↩ {{ stat.week_skips }}</span>
+            </div>
+          </td>
+          <td>
+            <div class="stat-inline">
+              <span class="stat-inline-main">{{ stat.this_month }}</span>
+              <span class="stat-inline-skip">↩ {{ stat.month_skips }}</span>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <!-- FILA + HISTÓRICO -->
+  <div class="two-col">
+
+    <!-- Fila Atual -->
+    <div class="card-panel" style="margin-bottom: 0;">
+      <div class="panel-head">
+        <p class="section-title" style="margin-bottom: 0;">Fila atual</p>
+      </div>
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Nome</th>
+            <th>Entrada</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if not queue %}
+          <tr>
+            <td colspan="4" class="empty-state">Ninguém na fila</td>
+          </tr>
+          {% else %}
+          {% for entry in queue %}
+          <tr>
+            <td class="queue-pos">{{ loop.index }}</td>
+            <td>
+              <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                {% if entry.user %}
+                <img
+                  src="{{ entry.user.avatar_url }}"
+                  alt="avatar"
+                  style="width:26px;height:26px;border-radius:50%;background:var(--surface2);border:1.5px solid var(--accent);flex-shrink:0;">
+                {% endif %}
+                <span style="font-weight:500;">{{ entry.user.username if entry.user else 'Desconhecido' }}</span>
+                <!-- Badge tipo de atendimento -->
+                {% if entry.status == 'Analisando' and entry.service_type %}
+                {% if entry.service_type == 'Consulta' %}
+                <span class="badge-type badge-cns">CNS</span>
+                {% elif entry.service_type == 'Troca de Titularidade' %}
+                <span class="badge-type badge-trt">TRT</span>
+                {% elif entry.service_type == 'Criação de Matrícula' %}
+                <span class="badge-type badge-cri">CRI</span>
+                {% endif %}
+                {% endif %}
+              </div>
+            </td>
+            <td class="queue-time">{{ entry.first_entered_at.strftime('%H:%M') if entry.first_entered_at else (entry.entered_at.strftime('%H:%M') if entry.entered_at else '-') }}</td>
+            <td>
+              <div style="display:flex; align-items:center; gap:0.4rem;">
+                {% if loop.first and entry.status == 'Disponível' %}
+                <span class="badge badge-vez">Na vez</span>
+                {% elif entry.status == 'Analisando' %}
+                <span class="badge badge-analis">Analisando</span>
+                {% else %}
+                <span class="badge badge-aguard">Aguardando</span>
+                {% endif %}
+                <form action="{{ url_for('admin_remove_from_queue', user_id=entry.user_id) }}" method="POST"
+                  onsubmit="return confirm('Remover {{ entry.user.username if entry.user else '' }} da fila?')"
+                  style="margin:0;">
+                  <button type="submit" title="Remover da fila"
+                    style="background:transparent; border:none; cursor:pointer; color:var(--muted);
+                           font-size:0.9rem; line-height:1; padding:0.1rem 0.25rem; border-radius:4px;
+                           transition:color 0.15s, background 0.15s;"
+                    onmouseover="this.style.color='var(--danger)'; this.style.background='var(--danger-dim)';"
+                    onmouseout="this.style.color='var(--muted)'; this.style.background='transparent';">✕</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Histórico -->
+    <div class="card-panel" style="margin-bottom: 0; padding: 0; display: flex; flex-direction: column;">
+      <div class="panel-head">
+        <p class="section-title" style="margin-bottom: 0;">Últimos atendimentos</p>
+      </div>
+      <div class="history-scroll" style="flex: 1;">
+        <table class="hist-table">
+          <thead>
+            <tr>
+              <th>Colaborador</th>
+              <th>Tipo</th>
+              <th>Início</th>
+              <th>Duração</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if not history %}
+            <tr>
+              <td colspan="4" class="empty-state">Nenhum atendimento</td>
+            </tr>
+            {% else %}
+            {% for record in history %}
+            <tr>
+              <td class="hist-name">{{ record.colaborador.username }}</td>
+              <td>
+                {% if record.service_type == 'Consulta' %}
+                <span class="badge-type badge-cns">CNS</span>
+                {% elif record.service_type == 'Troca de Titularidade' %}
+                <span class="badge-type badge-trt">TRT</span>
+                {% elif record.service_type == 'Criação de Matrícula' %}
+                <span class="badge-type badge-cri">CRI</span>
+                {% else %}
+                <span style="color:var(--muted);font-size:0.7rem;">—</span>
+                {% endif %}
+              </td>
+              <td class="hist-inicio">{{ record.inicio }}</td>
+              <td class="hist-duracao">{{ record.duracao }}</td>
+            </tr>
+            {% endfor %}
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- COLABORADORES -->
+  <p class="section-title">Colaboradores</p>
+  <div class="users-panel">
+    <div class="users-head">Lista de usuários</div>
+
+    {% for user in all_users %}
+    <div class="user-row">
+      <div class="u-avatar">{{ user.username[0] | upper }}</div>
+      <div class="u-info">
+        <div class="u-nome">
+          {{ user.username }}
+          {% if user.is_admin %}
+          <span class="admin-badge" style="margin-left: 0.4rem; vertical-align: middle;">ADMIN</span>
+          {% endif %}
+        </div>
+        <div class="u-email">{{ user.email or '—' }}</div>
+      </div>
+      <div class="u-actions">
+        {% if not user.is_admin %}
+        <a href="{{ url_for('view_colaborador', user_id=user.id) }}" class="btn-detail">DETALHES</a>
+        {% endif %}
+        {% if user.id != current_user.id %}
+        <form action="{{ url_for('delete_user', user_id=user.id) }}" method="POST"
+          onsubmit="return confirm('Remover {{ user.username }}?')" style="margin:0;">
+          <button type="submit" class="btn-rem">REMOVER</button>
+        </form>
+        {% else %}
+        <span style="font-size: 0.62rem; color: var(--muted); font-style: italic; align-self: center;">você</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+
+    <!-- Criar usuário -->
+    <div class="create-section">
+      <div class="create-title">Adicionar colaborador</div>
+      <form action="{{ url_for('create_user') }}" method="POST">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="f-nome">Nome</label>
+            <input class="form-input" type="text" id="f-nome" name="username" placeholder="Nome completo" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="f-email">Email</label>
+            <input class="form-input" type="email" id="f-email" name="email" placeholder="email@empresa.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="f-senha">Senha</label>
+            <input class="form-input" type="password" id="f-senha" name="password" placeholder="Senha inicial" required>
+          </div>
+        </div>
+        <div class="form-foot">
+          <label class="check-label">
+            <input type="checkbox" name="is_admin" id="is_admin">
+            <span>Perfil Admin</span>
+          </label>
+          <button type="submit" class="btn-criar">CRIAR USUÁRIO</button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

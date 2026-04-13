@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+
+{% block extra_styles %}
+<style>
+    .detail-main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 3rem;
+    }
+
+    /* ─────────── HEADER ─────────── */
+    .detail-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 2rem;
+        padding-bottom: 1.25rem;
+        border-bottom: 1px solid var(--border);
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .detail-title-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .btn-voltar {
+        font-family: 'DM Mono', monospace;
+        font-size: 0.62rem;
+        letter-spacing: 0.06em;
+        padding: 0.38rem 0.75rem;
+        background: transparent;
+        border: 1px solid var(--border2);
+        color: var(--muted);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.18s;
+        text-decoration: none;
+        display: inline-block;
+        white-space: nowrap;
+    }
+
+    .btn-voltar:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-dim);
+    }
+
+    .detail-name {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--text);
+        letter-spacing: -0.02em;
+    }
+
+    .detail-name span {
+        color: var(--accent);
+    }
+
+    /* ─────────── STAT CARDS ─────────── */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 2rem;
+    }
+
+    @media (max-width: 580px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .stat-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1rem 1.1rem;
+        box-shadow: var(--shadow-sm);
+        transition: box-shadow 0.18s, transform 0.18s;
+    }
+
+    .stat-card:hover {
+        box-shadow: var(--shadow-md);
+        transform: translateY(-2px);
+    }
+
+    .stat-label {
+        font-family: 'DM Mono', monospace;
+        font-size: 0.58rem;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+        text-transform: uppercase;
+        margin-bottom: 0.4rem;
+    }
+
+    .stat-value {
+        font-family: 'DM Mono', monospace;
+        font-size: 1.75rem;
+        font-weight: 300;
+        line-height: 1.1;
+    }
+
+    .stat-value.purple {
+        color: var(--accent);
+    }
+
+    .stat-value.orange {
+        color: var(--warn);
+    }
+
+    .stat-value.blue {
+        color: var(--info);
+    }
+
+    /* ─────────── HISTÓRICO ─────────── */
+    .history-panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+    }
+
+    .history-panel-head {
+        padding: 0.75rem 1.1rem 0.6rem;
+        background: var(--surface2);
+        border-bottom: 1px solid var(--border);
+        font-family: 'DM Mono', monospace;
+        font-size: 0.57rem;
+        letter-spacing: 0.14em;
+        color: var(--muted);
+        text-transform: uppercase;
+    }
+
+    .history-scroll {
+        max-height: 520px;
+        overflow-y: auto;
+    }
+
+    .hist-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .hist-table th {
+        font-family: 'DM Mono', monospace;
+        font-size: 0.56rem;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+        text-transform: uppercase;
+        padding: 0.42rem 0.7rem;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        background: var(--surface2);
+        position: sticky;
+        top: 0;
+    }
+
+    .hist-table td {
+        padding: 0.55rem 0.7rem;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.8rem;
+        vertical-align: middle;
+    }
+
+    .hist-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .hist-table tbody tr {
+        transition: background 0.12s;
+    }
+
+    .hist-table tbody tr:hover {
+        background: var(--surface2);
+    }
+
+    .hist-date {
+        font-family: 'DM Mono', monospace;
+        font-size: 0.72rem;
+        color: var(--text-mid);
+        white-space: nowrap;
+    }
+
+    .hist-duracao {
+        font-family: 'DM Mono', monospace;
+        font-size: 0.72rem;
+        color: var(--accent);
+        white-space: nowrap;
+    }
+
+    /* badges */
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        font-family: 'DM Mono', monospace;
+        font-size: 0.57rem;
+        letter-spacing: 0.05em;
+        padding: 0.16rem 0.52rem;
+        border-radius: 99px;
+        font-weight: 500;
+    }
+
+    .badge-concluido {
+        background: rgba(5, 150, 105, 0.10);
+        color: var(--success);
+        border: 1px solid rgba(5, 150, 105, 0.22);
+    }
+
+    .badge-pulado {
+        background: var(--warn-dim);
+        color: var(--warn);
+        border: 1px solid rgba(217, 119, 6, 0.22);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 2.5rem 1rem;
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-style: italic;
+    }
+
+    /* badges de tipo de atendimento */
+    .badge-type {
+        display: inline-flex;
+        align-items: center;
+        font-family: 'DM Mono', monospace;
+        font-size: 0.54rem;
+        font-weight: 600;
+        letter-spacing: 0.07em;
+        padding: 0.12rem 0.44rem;
+        border-radius: 5px;
+        white-space: nowrap;
+    }
+
+    .badge-cns {
+        background: rgba(37, 99, 235, 0.12);
+        color: #2563eb;
+        border: 1px solid rgba(37, 99, 235, 0.25);
+    }
+
+    .badge-trt {
+        background: rgba(217, 119, 6, 0.12);
+        color: #d97706;
+        border: 1px solid rgba(217, 119, 6, 0.25);
+    }
+
+    .badge-cri {
+        background: rgba(5, 150, 105, 0.12);
+        color: #059669;
+        border: 1px solid rgba(5, 150, 105, 0.25);
+    }
+
+    [data-theme="dark"] .badge-cns {
+        color: #60a5fa;
+        background: rgba(96, 165, 250, 0.12);
+        border-color: rgba(96, 165, 250, 0.25);
+    }
+
+    [data-theme="dark"] .badge-trt {
+        color: #fbbf24;
+        background: rgba(251, 191, 36, 0.12);
+        border-color: rgba(251, 191, 36, 0.25);
+    }
+
+    [data-theme="dark"] .badge-cri {
+        color: #34d399;
+        background: rgba(52, 211, 153, 0.12);
+        border-color: rgba(52, 211, 153, 0.25);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detail-main">
+
+    <!-- HEADER -->
+    <div class="detail-header">
+        <div class="detail-title-row">
+            <a href="{{ url_for('admin') }}" class="btn-voltar">← VOLTAR</a>
+            <h2 class="detail-name">Visão Geral: <span>{{ user.username }}</span></h2>
+        </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Total Concluídos</div>
+            <div class="stat-value purple">{{ total_concluidos }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Pulados</div>
+            <div class="stat-value orange">{{ total_pulados }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Tempo médio de atendimento</div>
+            <div class="stat-value blue" style="font-size: 1.4rem; padding-top: 0.15rem;">{{ avg_time }}</div>
+        </div>
+    </div>
+
+    <!-- HISTÓRICO -->
+    <div class="history-panel">
+        <div class="history-panel-head">Histórico completo de atividades</div>
+        <div class="history-scroll">
+            <table class="hist-table">
+                <thead>
+                    <tr>
+                        <th>Data e Hora</th>
+                        <th>Ação</th>
+                        <th>Tipo</th>
+                        <th>Duração</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if not history %}
+                    <tr>
+                        <td colspan="4" class="empty-state">Nenhuma atividade registrada</td>
+                    </tr>
+                    {% else %}
+                    {% for record in history %}
+                    <tr>
+                        <td class="hist-date">{{ record.data.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+                        <td>
+                            {% if record.tipo == 'Concluído' %}
+                            <span class="badge badge-concluido">Concluído</span>
+                            {% else %}
+                            <span class="badge badge-pulado">Pulado</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if record.service_type == 'Consulta' %}
+                            <span class="badge-type badge-cns">CNS</span>
+                            {% elif record.service_type == 'Troca de Titularidade' %}
+                            <span class="badge-type badge-trt">TRT</span>
+                            {% elif record.service_type == 'Criação de Matrícula' %}
+                            <span class="badge-type badge-cri">CRI</span>
+                            {% else %}
+                            <span style="color:var(--muted);font-size:0.7rem;">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if record.duracao != '-' %}
+                            <span class="hist-duracao">{{ record.duracao }}</span>
+                            {% else %}
+                            <span style="color:var(--muted);">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

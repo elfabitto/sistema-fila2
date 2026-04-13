@@ -1,0 +1,451 @@
+{% extends "base.html" %}
+
+{% block extra_styles %}
+<style>
+    .avatar-wrap {
+        max-width: 820px;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 3rem;
+    }
+
+    /* ── Header ── */
+    .avatar-page-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        padding-bottom: 1.25rem;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .btn-voltar {
+        font-family: 'DM Mono', monospace;
+        font-size: 0.62rem;
+        letter-spacing: 0.06em;
+        padding: 0.38rem 0.75rem;
+        background: transparent;
+        border: 1px solid var(--border2);
+        color: var(--muted);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.18s;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-voltar:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-dim);
+    }
+
+    .avatar-page-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text);
+        letter-spacing: -0.02em;
+    }
+
+    .avatar-page-title span {
+        color: var(--accent);
+    }
+
+    /* ── Preview hero ── */
+    .preview-hero {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 2rem;
+    }
+
+    .preview-img-wrap {
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    .preview-img {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        border: 3px solid var(--accent);
+        background: var(--surface2);
+        box-shadow: 0 0 0 5px var(--accent-dim);
+        object-fit: cover;
+        transition: all 0.3s ease;
+    }
+
+    .preview-info strong {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--text);
+        display: block;
+        margin-bottom: 0.15rem;
+    }
+
+    .preview-info p {
+        font-family: 'DM Mono', monospace;
+        font-size: 0.7rem;
+        color: var(--muted);
+    }
+
+    /* ── Section title ── */
+    .section-title {
+        font-family: 'DM Mono', monospace;
+        font-size: 0.58rem;
+        letter-spacing: 0.14em;
+        color: var(--muted);
+        text-transform: uppercase;
+        margin-bottom: 0.8rem;
+    }
+
+    /* ── Estilos de avatar ── */
+    .styles-row {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.75rem;
+    }
+
+    .style-btn {
+        font-family: 'DM Mono', monospace;
+        font-size: 0.62rem;
+        letter-spacing: 0.06em;
+        padding: 0.36rem 0.85rem;
+        background: var(--surface);
+        border: 1px solid var(--border2);
+        color: var(--text-mid);
+        border-radius: 99px;
+        cursor: pointer;
+        transition: all 0.18s;
+        user-select: none;
+    }
+
+    .style-btn:hover,
+    .style-btn.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+        box-shadow: 0 2px 10px var(--accent-glow);
+    }
+
+    /* ── Campo seed customizado ── */
+    .seed-area {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 1.25rem 1.5rem;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 1.5rem;
+    }
+
+    .seed-input-row {
+        display: flex;
+        gap: 0.6rem;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .seed-input {
+        flex: 1;
+        padding: 0.55rem 0.85rem;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text);
+        font-family: 'DM Mono', monospace;
+        font-size: 0.8rem;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        margin: 0;
+        width: auto;
+    }
+
+    .seed-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    .seed-hint {
+        font-size: 0.7rem;
+        color: var(--muted);
+        margin-bottom: 0.85rem;
+    }
+
+    /* ── Sugestões rápidas (grid de avatares) ── */
+    .seed-suggestions-title {
+        font-family: 'DM Mono', monospace;
+        font-size: 0.56rem;
+        letter-spacing: 0.12em;
+        color: var(--muted);
+        text-transform: uppercase;
+        margin-bottom: 0.6rem;
+    }
+
+    .avatars-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+        gap: 0.55rem;
+    }
+
+    .avatar-option {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.55rem 0.35rem;
+        background: var(--surface2);
+        border: 2px solid var(--border);
+        border-radius: 11px;
+        cursor: pointer;
+        transition: all 0.18s;
+        user-select: none;
+    }
+
+    .avatar-option:hover {
+        border-color: var(--accent-mid);
+        background: var(--accent-dim);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .avatar-option.selected {
+        border-color: var(--accent);
+        background: var(--accent-dim);
+        box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .avatar-option img {
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        background: var(--surface2);
+        display: block;
+    }
+
+    .avatar-option span {
+        font-family: 'DM Mono', monospace;
+        font-size: 0.5rem;
+        color: var(--muted);
+        letter-spacing: 0.04em;
+        text-align: center;
+        max-width: 64px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* ── Salvar ── */
+    .save-bar {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 1.25rem;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .save-bar p {
+        font-size: 0.78rem;
+        color: var(--muted);
+        flex: 1;
+    }
+
+    .btn-save {
+        padding: 0.55rem 1.5rem;
+        background: var(--accent);
+        color: #fff;
+        font-family: 'DM Mono', monospace;
+        font-size: 0.72rem;
+        letter-spacing: 0.07em;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.18s;
+        box-shadow: 0 2px 10px var(--accent-glow);
+    }
+
+    .btn-save:hover {
+        background: var(--accent-mid);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 18px var(--accent-glow);
+    }
+
+    @media (max-width: 600px) {
+        .preview-hero {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .avatars-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="avatar-wrap">
+
+    <!-- Header -->
+    <div class="avatar-page-header">
+        <a href="{{ url_for('index') }}" class="btn-voltar">← VOLTAR</a>
+        <h1 class="avatar-page-title">Meu <span>Avatar</span></h1>
+    </div>
+
+    <!-- Preview atual -->
+    <div class="preview-hero">
+        <div class="preview-img-wrap">
+            <img class="preview-img" id="preview-img"
+                src="https://api.dicebear.com/9.x/{{ current_style }}/svg?seed={{ current_seed }}&{% if current_style.endswith('-neutral') %}backgroundColor={{ neutral_bg_for(current_seed) }}{% else %}backgroundColor=transparent{% endif %}"
+                alt="Seu avatar atual">
+
+        </div>
+        <div class="preview-info">
+            <strong>{{ current_user.username }}</strong>
+            <p id="preview-label">{{ current_style }} · {{ current_seed }}</p>
+        </div>
+    </div>
+
+    <form method="POST" id="avatar-form">
+
+        <!-- Campos hidden -->
+        <input type="hidden" name="avatar_style" id="avatar_style" value="{{ current_style }}">
+        <input type="hidden" name="avatar_seed" id="avatar_seed" value="{{ current_seed }}">
+
+        <!-- Escolher estilo -->
+        <p class="section-title">Estilo do Avatar</p>
+        <div class="styles-row" id="styles-row">
+            {% for s in styles %}
+            <button type="button" class="style-btn {% if s.id == current_style %}active{% endif %}"
+                data-style="{{ s.id }}">{{ s.label }}</button>
+            {% endfor %}
+        </div>
+
+        <!-- Personalizar seed -->
+        <div class="seed-area">
+            <p class="section-title" style="margin-bottom:0.6rem;">Personalizar Aparência</p>
+            <p class="seed-hint">Digite qualquer palavra ou nome para gerar um avatar único. Cada combinação de texto
+                gera um visual diferente.</p>
+            <div class="seed-input-row">
+                <input type="text" class="seed-input" id="seed-custom-input"
+                    placeholder="Digite um nome, palavra ou frase..." value="{{ current_seed }}" maxlength="80">
+            </div>
+
+            <!-- Sugestões rápidas -->
+            <p class="seed-suggestions-title">Sugestões rápidas</p>
+            <div class="avatars-grid" id="avatars-grid">
+                {% set suggestions = ['Felix', 'Luna', 'Nala', 'Garfield', 'Bandit', 'Mochi', 'Zara', 'Cosmo', 'Pixel',
+                'Sushi', 'Biscuit', 'Pepper', 'Shadow', 'Ninja', 'Storm', 'Blaze', 'Nova', 'Atlas', 'Echo', 'Orion'] %}
+                {% for seed in suggestions %}
+                <div class="avatar-option {% if seed == current_seed %}selected{% endif %}" data-seed="{{ seed }}">
+                    <img src="https://api.dicebear.com/9.x/{{ current_style }}/svg?seed={{ seed }}&{% if current_style.endswith('-neutral') %}backgroundColor={{ neutral_bg_for(seed) }}{% else %}backgroundColor=transparent{% endif %}"
+                        alt="{{ seed }}" loading="lazy">
+                    <span>{{ seed }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Salvar -->
+        <div class="save-bar">
+            <p>Escolha um estilo, personalize com qualquer palavra e salve.</p>
+            <button type="submit" class="btn-save">SALVAR AVATAR</button>
+        </div>
+
+    </form>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const BASE_URL = 'https://api.dicebear.com/9.x';
+    // Paleta de tons de pele + amarelo emoji (sem o #)
+    const NEUTRAL_COLORS = ['f5cba7', 'e3a87a', 'c68642', 'a0522d', '6b3a2a', 'ffd93d'];
+
+    // Cor determinística baseada no seed (mesma lógica do backend)
+    function getBgColor(seed) {
+        let sum = 0;
+        for (let i = 0; i < seed.length; i++) sum += seed.charCodeAt(i);
+        return NEUTRAL_COLORS[sum % NEUTRAL_COLORS.length];
+    }
+
+    let selStyle = document.getElementById('avatar_style').value;
+    let selSeed = document.getElementById('avatar_seed').value;
+
+    const previewImg = document.getElementById('preview-img');
+    const previewLabel = document.getElementById('preview-label');
+    const styleInput = document.getElementById('avatar_style');
+    const seedInput = document.getElementById('avatar_seed');
+    const customInput = document.getElementById('seed-custom-input');
+
+    function buildUrl(style, seed) {
+        const bg = style.endsWith('-neutral') ? getBgColor(seed) : 'transparent';
+        const bgParam = style.endsWith('-neutral') ? `backgroundColor=${bg}` : 'backgroundColor=transparent';
+        return `${BASE_URL}/${style}/svg?seed=${encodeURIComponent(seed)}&${bgParam}`;
+    }
+
+    function updatePreview() {
+        previewImg.src = buildUrl(selStyle, selSeed);
+        previewLabel.textContent = `${selStyle} · ${selSeed}`;
+        styleInput.value = selStyle;
+        seedInput.value = selSeed;
+    }
+
+    function refreshGrid() {
+        document.querySelectorAll('.avatar-option img').forEach(img => {
+            const seed = img.closest('.avatar-option').dataset.seed;
+            img.src = buildUrl(selStyle, seed);
+        });
+        syncGridSelection();
+    }
+
+    function syncGridSelection() {
+        document.querySelectorAll('.avatar-option').forEach(el => {
+            el.classList.toggle('selected', el.dataset.seed === selSeed);
+        });
+    }
+
+    // Clique nos botões de estilo
+    document.querySelectorAll('.style-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selStyle = btn.dataset.style;
+            refreshGrid();
+            updatePreview();
+        });
+    });
+
+    // Clique nas sugestões rápidas
+    document.querySelectorAll('.avatar-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+            selSeed = opt.dataset.seed;
+            customInput.value = selSeed;
+            syncGridSelection();
+            updatePreview();
+        });
+    });
+
+    // Digitação no campo customizado
+    let debounceTimer;
+    customInput.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            const val = customInput.value.trim();
+            if (val.length > 0) {
+                selSeed = val;
+                syncGridSelection(); // desmarca sugestão se não bater
+                updatePreview();
+            }
+        }, 400);
+    });
+</script>
+{% endblock %}

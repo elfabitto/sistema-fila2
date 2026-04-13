@@ -1,0 +1,682 @@
+# O eventlet precisa aplicar o monkey patch antes de todas as outras importações 
+# para funcionar corretamente no Gunicorn com o PostgreSQL/SQLAlchemy.
+import eventlet
+eventlet.monkey_patch()
+
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_socketio import SocketIO, emit
+from models import db, User, Queue, Attendance, Skip, get_brt_time
+from flask import make_response
+from datetime import datetime, timedelta
+import os
+import csv
+import io
+from openpyxl import Workbook
+
+def format_duration(seconds):
+    if not seconds:
+        return "0s"
+    h = seconds // 3600
+    m = (seconds % 3600) // 60
+    s = seconds % 60
+    if h > 0:
+        return f"{h}h {m}m {s}s"
+    elif m > 0:
+        return f"{m}m {s}s"
+    return f"{s}s"
+
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'chave-secreta-fila'
+# Usar caminho absoluto para evitar erros de diretório
+basedir = os.path.abspath(os.path.dirname(__file__))
+
+# Suporte a PostgreSQL no Render ou SQLite local (fallback)
+database_url = os.environ.get('DATABASE_URL')
+if database_url:
+    # O SQLAlchemy 1.4+ requer que a URL comece com postgresql:// e o Render às vezes fornece postgres://
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    
+    # Para evitar o erro "cannot notify on un-acquired lock" com o Eventlet/Websockets
+    from sqlalchemy.pool import NullPool
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'poolclass': NullPool}
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'instance', 'queue.db')
+
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db.init_app(app)
+
+# Inicializar o banco de dados automaticamente
+with app.app_context():
+    from models import User # Import garantido aqui
+    db.create_all()
+
+    # ── Migração automática de colunas ──
+    try:
+        is_postgres = 'postgresql' in app.config['SQLALCHEMY_DATABASE_URI']
+        if is_postgres:
+            db.session.execute(db.text(
+                "ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS avatar_style VARCHAR(50) DEFAULT 'adventurer'"
+            ))
+            db.session.execute(db.text(
+                "ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS avatar_seed VARCHAR(100)"
+            ))
+            db.session.execute(db.text(
+                "ALTER TABLE queue ADD COLUMN IF NOT EXISTS left_at TIMESTAMP"
+            ))
+            db.session.execute(db.text(
+                "ALTER TABLE queue ADD COLUMN IF NOT EXISTS service_type VARCHAR(30)"
+            ))
+            db.session.execute(db.text(
+                "ALTER TABLE queue ADD COLUMN IF NOT EXISTS first_entered_at TIMESTAMP"
+            ))
+            db.session.execute(db.text(
+                "UPDATE queue SET first_entered_at = entered_at WHERE first_entered_at IS NULL"
+            ))
+            db.session.execute(db.text(
+                "ALTER TABLE attendance ADD COLUMN IF NOT EXISTS service_type VARCHAR(30)"
+            ))
+        else:
+            # SQLite: verificar via PRAGMA antes de alterar
+            # Tabela user
+            result = db.session.execute(db.text("PRAGMA table_info(\"user\")")).fetchall()
+            cols = [row[1] for row in result]
+            if 'avatar_style' not in cols:
+                db.session.execute(db.text(
+                    "ALTER TABLE \"user\" ADD COLUMN avatar_style VARCHAR(50) DEFAULT 'adventurer'"
+                ))
+            if 'avatar_seed' not in cols:
+                db.session.execute(db.text(
+                    "ALTER TABLE \"user\" ADD COLUMN avatar_seed VARCHAR(100)"
+                ))
+            # Tabela queue
+            result_q = db.session.execute(db.text("PRAGMA table_info(queue)")).fetchall()
+            cols_q = [row[1] for row in result_q]
+            if 'left_at' not in cols_q:
+                db.session.execute(db.text(
+                    "ALTER TABLE queue ADD COLUMN left_at TIMESTAMP"
+                ))
+            if 'service_type' not in cols_q:
+                db.session.execute(db.text(
+                    "ALTER TABLE queue ADD COLUMN service_type VARCHAR(30)"
+                ))
+            if 'first_entered_at' not in cols_q:
+                db.session.execute(db.text(
+                    "ALTER TABLE queue ADD COLUMN first_entered_at TIMESTAMP"
+                ))
+                db.session.execute(db.text(
+                    "UPDATE queue SET first_entered_at = entered_at WHERE first_entered_at IS NULL"
+                ))
+            # Tabela attendance
+            result_a = db.session.execute(db.text("PRAGMA table_info(attendance)")).fetchall()
+            cols_a = [row[1] for row in result_a]
+            if 'service_type' not in cols_a:
+                db.session.execute(db.text(
+                    "ALTER TABLE attendance ADD COLUMN service_type VARCHAR(30)"
+                ))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[migração] aviso: {e}")
+
+    usuarios_iniciais = [
+        {'username': 'Jarbas', 'is_admin': False},
+        {'username': 'Mariana', 'is_admin': False},
+        {'username': 'Eliene', 'is_admin': False},
+        {'username': 'Lorena', 'is_admin': True},
+        {'username': 'Lucas', 'is_admin': False},
+        {'username': 'Carla', 'is_admin': False},
+        {'username': 'Cristiane', 'is_admin': False},
+        {'username': 'Julio', 'is_admin': False},
+        {'username': 'Marlon', 'is_admin': False},
+        {'username': 'Antonio', 'is_admin': False},
+        {'username': 'Fabio', 'is_admin': False},
+        {'username': 'Ingrid', 'is_admin': False},
+        {'username': 'Eduarda', 'is_admin': False}
+    ]
+    
+    for u_data in usuarios_iniciais:
+        # Só cria se o usuário ainda não existir no banco
+        if not User.query.filter_by(username=u_data['username']).first():
+            senha = f"{u_data['username']}123"
+            novo_usuario = User(username=u_data['username'], password=senha, is_admin=u_data['is_admin'])
+            db.session.add(novo_usuario)
+            
+    # Criar também o admin genérico caso não exista, por segurança
+    if not User.query.filter_by(username='admin').first():
+        db.session.add(User(username='admin', password='123', is_admin=True))
+        
+    db.session.commit()
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+socketio = SocketIO(app)
+
+user_connections = {}
+
+# Injeta avatar_url do user atual e helper de cor neutral em todos os templates
+@app.context_processor
+def inject_user_avatar():
+    def neutral_bg_for(seed):
+        """Retorna a cor de fundo (hex sem #) para estilos Neutral, baseada no seed."""
+        colors = ['f5cba7', 'e3a87a', 'c68642', 'a0522d', '6b3a2a', 'ffd93d']
+        return colors[sum(ord(c) for c in str(seed)) % len(colors)]
+
+    ctx = {'neutral_bg_for': neutral_bg_for}
+    if current_user.is_authenticated:
+        ctx['current_avatar_url'] = current_user.avatar_url
+    else:
+        ctx['current_avatar_url'] = None
+    return ctx
+
+@socketio.on('connect')
+def on_connect():
+    if current_user.is_authenticated:
+        user_id = current_user.id
+        user_connections[user_id] = user_connections.get(user_id, 0) + 1
+
+@socketio.on('disconnect')
+def on_disconnect():
+    pass
+    # Removida a lógica de auto-remoção da fila a pedido do cliente.
+    # O usuário só sai da fila se clicar explicitly no botão "Sair da fila".
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+# --- ROTAS DE AUTENTICAÇÃO ---
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
+        if user and user.password == password: # Simples para este projeto
+            login_user(user)
+            return redirect(url_for('index'))
+        flash('Usuário ou senha incorretos.')
+    return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    # Se estiver na fila ao sair, remover da fila
+    entry = Queue.query.filter_by(user_id=current_user.id).first()
+    if entry:
+        db.session.delete(entry)
+        db.session.commit()
+    logout_user()
+    return redirect(url_for('login'))
+
+# --- ROTAS DA FILA ---
+@app.route('/')
+@login_required
+def index():
+    if current_user.is_admin:
+        return redirect(url_for('admin'))
+    
+    # Pegar a fila completa ordenada por tempo de entrada
+    queue_list = Queue.query.order_by(Queue.entered_at.asc()).all()
+    
+    # Verificar se o usuário está na fila
+    user_entry = Queue.query.filter_by(user_id=current_user.id).first()
+    
+    # Quem está na vez? O primeiro da fila que não está "Analisando" ou o primeiro de todos?
+    # Segundo o requisito: "O próximo disponível já fica na vez"
+    current_turn_entry = Queue.query.filter_by(status='Disponível').order_by(Queue.entered_at.asc()).first()
+    
+    return render_template('index.html', queue=queue_list, user_entry=user_entry, turn_user=current_turn_entry)
+
+@app.route('/join_queue', methods=['POST'])
+@login_required
+def join_queue():
+    if not Queue.query.filter_by(user_id=current_user.id).first():
+        new_entry = Queue(user_id=current_user.id)
+        db.session.add(new_entry)
+        db.session.commit()
+        socketio.emit('update_queue')
+    return redirect(url_for('index'))
+
+@app.route('/leave_queue', methods=['POST'])
+@login_required
+def leave_queue():
+    entry = Queue.query.filter_by(user_id=current_user.id).first()
+    if entry:
+        entry.left_at = get_brt_time()
+        db.session.commit()
+        db.session.delete(entry)
+        db.session.commit()
+        socketio.emit('update_queue')
+    return redirect(url_for('index'))
+
+@app.route('/admin/remove_from_queue/<int:user_id>', methods=['POST'])
+@login_required
+def admin_remove_from_queue(user_id):
+    """Permite ao admin remover qualquer usuário da fila."""
+    if not current_user.is_admin:
+        return redirect(url_for('index'))
+    entry = Queue.query.filter_by(user_id=user_id).first()
+    if entry:
+        db.session.delete(entry)
+        db.session.commit()
+        socketio.emit('update_queue')
+    return redirect(url_for('admin'))
+
+# Mapeamento de tipos de atendimento
+SERVICE_TYPES = {
+    'Consulta': 'CNS',
+    'Troca de Titularidade': 'TRT',
+    'Criação de Matrícula': 'CRI',
+}
+
+@app.route('/start_task', methods=['POST'])
+@login_required
+def start_task():
+    entry = Queue.query.filter_by(user_id=current_user.id).first()
+    if entry and entry.status == 'Disponível':
+        service_type = request.form.get('service_type', '')
+        if service_type not in SERVICE_TYPES:
+            service_type = 'Consulta'  # fallback
+        
+        entry.status = 'Analisando'
+        entry.service_type = service_type
+        
+        # Criar registro de atendimento
+        attendance = Attendance(user_id=current_user.id, service_type=service_type)
+        db.session.add(attendance)
+        db.session.commit()
+        
+        socketio.emit('update_queue')
+    return redirect(url_for('index'))
+
+@app.route('/finish_task', methods=['POST'])
+@login_required
+def finish_task():
+    entry = Queue.query.filter_by(user_id=current_user.id).first()
+    if entry and entry.status == 'Analisando':
+        # Atualizar atendimento
+        attendance = Attendance.query.filter_by(user_id=current_user.id, finished_at=None).order_by(Attendance.started_at.desc()).first()
+        if attendance:
+            attendance.finished_at = get_brt_time()
+            delta = attendance.finished_at - attendance.started_at
+            attendance.duration_seconds = int(delta.total_seconds())
+        
+        # Voltar para o fim da fila
+        entry.status = 'Disponível'
+        entry.entered_at = get_brt_time()
+        db.session.commit()
+        
+        socketio.emit('update_queue')
+    return redirect(url_for('index'))
+
+@app.route('/skip_task', methods=['POST'])
+@login_required
+def skip_task():
+    entry = Queue.query.filter_by(user_id=current_user.id).first()
+    if entry and entry.status == 'Disponível':
+        # Registrar o pulo no banco de dados
+        skip = Skip(user_id=current_user.id)
+        db.session.add(skip)
+        
+        # Mover para o fim da fila sem registrar atendimento
+        entry.entered_at = get_brt_time()
+        db.session.commit()
+        socketio.emit('update_queue')
+    return redirect(url_for('index'))
+
+def get_daily_stats():
+    """Calcula estatísticas diárias, semanais e mensais de atendimentos por colaborador"""
+    all_users = User.query.filter_by(is_admin=False).all()
+    daily_stats = []
+    
+    now = get_brt_time()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start = today_start - timedelta(days=today_start.weekday())
+    month_start = today_start.replace(day=1)
+    
+    for user in all_users:
+        # Atendimentos de hoje
+        today_count = Attendance.query.filter(
+            Attendance.user_id == user.id,
+            Attendance.finished_at.isnot(None),
+            Attendance.finished_at >= today_start
+        ).count()
+        today_skips = Skip.query.filter(
+            Skip.user_id == user.id,
+            Skip.skipped_at >= today_start
+        ).count()
+        
+        # Atendimentos desta semana
+        week_count = Attendance.query.filter(
+            Attendance.user_id == user.id,
+            Attendance.finished_at.isnot(None),
+            Attendance.finished_at >= week_start
+        ).count()
+        week_skips = Skip.query.filter(
+            Skip.user_id == user.id,
+            Skip.skipped_at >= week_start
+        ).count()
+        
+        # Atendimentos deste mês
+        month_count = Attendance.query.filter(
+            Attendance.user_id == user.id,
+            Attendance.finished_at.isnot(None),
+            Attendance.finished_at >= month_start
+        ).count()
+        month_skips = Skip.query.filter(
+            Skip.user_id == user.id,
+            Skip.skipped_at >= month_start
+        ).count()
+        
+        daily_stats.append({
+            'username': user.username,
+            'today': today_count,
+            'today_skips': today_skips,
+            'this_week': week_count,
+            'week_skips': week_skips,
+            'this_month': month_count,
+            'month_skips': month_skips
+        })
+    
+    return daily_stats
+
+# --- ROTA ADMIN ---
+@app.route('/admin')
+@login_required
+def admin():
+    if not current_user.is_admin:
+        return redirect(url_for('index'))
+    
+    all_users = User.query.all()
+    raw_history = Attendance.query.filter(Attendance.finished_at.isnot(None)).order_by(Attendance.finished_at.desc()).limit(50).all()
+    history = []
+    for r in raw_history:
+        inicio_str = r.started_at.strftime('%d/%m/%Y %H:%M') if r.started_at else '-'
+        history.append({
+            'colaborador': {'username': r.colaborador.username if hasattr(r, 'colaborador') and r.colaborador else 'Desconhecido'},
+            'duration_seconds': r.duration_seconds or 0,
+            'duracao': format_duration(r.duration_seconds),
+            'inicio': inicio_str,
+            'service_type': r.service_type or '',
+        })
+    
+    stats = []
+    for user in all_users:
+        if not user.is_admin:
+            count = Attendance.query.filter_by(user_id=user.id).filter(Attendance.finished_at.isnot(None)).count()
+            skip_count = Skip.query.filter_by(user_id=user.id).count()
+            stats.append({'id': user.id, 'username': user.username, 'count': count, 'skip_count': skip_count})
+    
+    daily_stats = get_daily_stats()
+    queue_list = Queue.query.order_by(Queue.entered_at.asc()).all()
+        
+    return render_template('admin.html', stats=stats, history=history, all_users=all_users,
+                           daily_stats=daily_stats, queue=queue_list, service_types=SERVICE_TYPES)
+
+@app.route('/admin/colaborador/<int:user_id>')
+@login_required
+def view_colaborador(user_id):
+    if not current_user.is_admin:
+        return redirect(url_for('index'))
+        
+    user = User.query.get_or_404(user_id)
+    
+    # Todos os atendimentos concluídos
+    attendances = Attendance.query.filter(
+        Attendance.user_id == user.id, 
+        Attendance.finished_at.isnot(None)
+    ).order_by(Attendance.finished_at.desc()).all()
+    
+    # Todos os pulos
+    skips = Skip.query.filter_by(user_id=user.id).order_by(Skip.skipped_at.desc()).all()
+    
+    # Calcular tempo médio
+    total_seconds = sum(a.duration_seconds for a in attendances if a.duration_seconds)
+    total_count = len(attendances)
+    avg_seconds = total_seconds // total_count if total_count > 0 else 0
+    
+    avg_minutes = avg_seconds // 60
+    avg_rem_seconds = avg_seconds % 60
+    
+    # Misturar e ordenar o histórico real
+    history = []
+    for a in attendances:
+        history.append({
+            'tipo': 'Concluído',
+            'data': a.finished_at,
+            'duracao': format_duration(a.duration_seconds),
+            'service_type': a.service_type or ''
+        })
+    for s in skips:
+        history.append({
+            'tipo': 'Pulado',
+            'data': s.skipped_at,
+            'duracao': "-",
+            'service_type': ''
+        })
+        
+    history.sort(key=lambda x: x['data'], reverse=True)
+    
+    return render_template('colaborador_detail.html', 
+                           user=user, 
+                           history=history, 
+                           total_concluidos=total_count,
+                           total_pulados=len(skips),
+                           avg_time=format_duration(avg_seconds),
+                           service_types=SERVICE_TYPES)
+
+@app.route('/admin/export')
+@login_required
+def export_xlsx():
+    if not current_user.is_admin:
+        return redirect(url_for('index'))
+        
+    # Definir período: mês atual por padrão, mas pode receber parametros
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    
+    now = get_brt_time()
+    try:
+        if start_date_str:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+        else:
+            start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+        if end_date_str:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+            # Incluir o dia inteiro até as 23:59:59
+            end_date = end_date.replace(hour=23, minute=59, second=59)
+        else:
+            end_date = now
+    except ValueError:
+        flash("Formato de data inválido. Use AAAA-MM-DD.")
+        return redirect(url_for('admin'))
+        
+    # Buscar concluidos
+    attendances = Attendance.query.filter(
+        Attendance.finished_at.isnot(None),
+        Attendance.finished_at >= start_date,
+        Attendance.finished_at <= end_date
+    ).all()
+    
+    # Buscar pulados
+    skips = Skip.query.filter(
+        Skip.skipped_at >= start_date,
+        Skip.skipped_at <= end_date
+    ).all()
+    
+    # Combinar e ordenar (cronologicamente)
+    records = []
+    for a in attendances:
+        records.append({
+            'data': a.finished_at,
+            'colaborador': a.colaborador.username if a.colaborador else 'Desconhecido',
+            'service_type': a.service_type or '',
+            'acao': 'Concluído',
+            'duracao_segundos': a.duration_seconds or 0
+        })
+        
+    for s in skips:
+        records.append({
+            'data': s.skipped_at,
+            'colaborador': s.user.username if s.user else 'Desconhecido',
+            'service_type': '',
+            'acao': 'Pulado',
+            'duracao_segundos': 0
+        })
+        
+    records.sort(key=lambda x: x['data'], reverse=True)
+    
+    # Gerar XLSX
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Relatório"
+    ws.append(['Data/Hora', 'Colaborador', 'Tipo de Atendimento', 'Ação', 'Tempo de Atendimento (Segundos)', 'Tempo de Atendimento (Formatado)'])
+    
+    for r in records:
+        ws.append([
+            r['data'].strftime('%d/%m/%Y %H:%M:%S'),
+            r['colaborador'],
+            r.get('service_type', ''),
+            r['acao'],
+            r['duracao_segundos'],
+            format_duration(r['duracao_segundos'])
+        ])
+        
+    si = io.BytesIO()
+    wb.save(si)
+    si.seek(0)
+    
+    output = make_response(si.read())
+    output.headers["Content-Disposition"] = f"attachment; filename=relatorio_atendimentos_{start_date.strftime('%Y%m%d')}_a_{end_date.strftime('%Y%m%d')}.xlsx"
+    output.headers["Content-type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    return output
+
+# ── ROTAS DE AVATAR ──
+AVATAR_STYLES = [
+    {'id': 'adventurer',         'label': 'Adventurer'},
+    {'id': 'adventurer-neutral', 'label': 'Adventurer Neutral'},
+    {'id': 'avataaars',          'label': 'Avataaars'},
+    {'id': 'avataaars-neutral',  'label': 'Avataaars Neutral'},
+    {'id': 'big-ears',           'label': 'Big Ears'},
+    {'id': 'big-ears-neutral',   'label': 'Big Ears Neutral'},
+    {'id': 'big-smile',          'label': 'Big Smile'},
+    {'id': 'bottts',             'label': 'Bottts'},
+    {'id': 'bottts-neutral',     'label': 'Bottts Neutral'},
+    {'id': 'croodles-neutral',   'label': 'Croodles Neutral'},
+    {'id': 'lorelei-neutral',    'label': 'Lorelei Neutral'},
+    {'id': 'micah',              'label': 'Micah'},
+    {'id': 'miniavs',            'label': 'Miniavs'},
+    {'id': 'notionists-neutral', 'label': 'Notionists Neutral'},
+    {'id': 'open-peeps',         'label': 'Open Peeps'},
+    {'id': 'personas',           'label': 'Personas'},
+    {'id': 'pixel-art',          'label': 'Pixel Art'},
+    {'id': 'pixel-art-neutral',  'label': 'Pixel Art Neutral'},
+]
+
+# Paleta de cores de fundo para estilos Neutral (tons de pele + amarelo emoji)
+NEUTRAL_BG_COLORS = [
+    'f5cba7',  # bege claro
+    'e3a87a',  # tom de pele médio-claro
+    'c68642',  # tom de pele médio
+    'a0522d',  # tom de pele médio-escuro
+    '6b3a2a',  # tom de pele escuro
+    'ffd93d',  # amarelo emoji
+]
+
+def is_neutral_style(style_id):
+    """Verifica se um estilo é do tipo Neutral (requer cor de fundo)."""
+    return style_id.endswith('-neutral')
+
+AVATAR_SEEDS = [
+    'Felix', 'Luna', 'Nala', 'Garfield', 'Bandit', 'Mochi',
+    'Zara', 'Cosmo', 'Pixel', 'Sushi', 'Biscuit', 'Pepper',
+]
+
+@app.route('/profile/avatar', methods=['GET', 'POST'])
+@login_required
+def profile_avatar():
+    if request.method == 'POST':
+        style = request.form.get('avatar_style', 'adventurer')
+        seed  = request.form.get('avatar_seed', current_user.username).strip()
+        # Validar estilo
+        valid_styles = [s['id'] for s in AVATAR_STYLES]
+        if style not in valid_styles:
+            style = 'fun-emoji'
+        # Seed livre: se vazia, usa o username
+        if not seed:
+            seed = current_user.username
+        # Limitar tamanho
+        seed = seed[:80]
+        current_user.avatar_style = style
+        current_user.avatar_seed  = seed
+        db.session.commit()
+        flash('Avatar atualizado com sucesso!')
+        return redirect(url_for('profile_avatar'))
+    return render_template(
+        'avatar.html',
+        styles=AVATAR_STYLES,
+        current_style=current_user.avatar_style or 'adventurer',
+        current_seed=current_user.avatar_seed or current_user.username,
+    )
+
+@app.route('/admin/create_user', methods=['POST'])
+@login_required
+def create_user():
+    if not current_user.is_admin:
+        return redirect(url_for('index'))
+    
+    username = request.form.get('username')
+    email = request.form.get('email')
+    password = request.form.get('password')
+    is_admin = 'is_admin' in request.form
+    
+    if User.query.filter_by(username=username).first():
+        flash('Este nome de usuário já existe.')
+    else:
+        new_user = User(username=username, email=email, password=password, is_admin=is_admin)
+        db.session.add(new_user)
+        db.session.commit()
+        flash(f'Usuário {username} criado com sucesso!')
+        
+    return redirect(url_for('admin'))
+
+@app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
+@login_required
+def delete_user(user_id):
+    if not current_user.is_admin:
+        return redirect(url_for('index'))
+    
+    if user_id == current_user.id:
+        flash('Você não pode excluir a si mesmo.')
+        return redirect(url_for('admin'))
+        
+    user = User.query.get_or_404(user_id)
+    
+    # Remover da fila se estiver nela
+    entry = Queue.query.filter_by(user_id=user_id).first()
+    if entry:
+        db.session.delete(entry)
+        
+    db.session.delete(user)
+    db.session.commit()
+    flash(f'Usuário {user.username} removido.')
+    
+    socketio.emit('update_queue')
+    return redirect(url_for('admin'))
+
+if __name__ == '__main__':
+    print("\n" + "="*60)
+    print(" SERVIDOR INICIADO COM SUCESSO!")
+    print("="*60)
+    print("\n Acesse o sistema em seu navegador:")
+    print("    http://localhost:5001")
+    print("    http://127.0.0.1:5001")
+    print("\n" + "="*60 + "\n")
+    socketio.run(app, debug=True, host='0.0.0.0', port=5001)
