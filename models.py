@@ -14,7 +14,7 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(100), unique=True, nullable=True)
     password = db.Column(db.String(100), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
-    avatar_style = db.Column(db.String(50), default='fun-emoji')
+    avatar_style = db.Column(db.String(50), default='adventurer-neutral')
     avatar_seed = db.Column(db.String(100), default=None)
 
     # Paleta de tons de pele + amarelo emoji
