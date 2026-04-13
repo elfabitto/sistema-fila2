@@ -63,7 +63,7 @@ with app.app_context():
         is_postgres = 'postgresql' in app.config['SQLALCHEMY_DATABASE_URI']
         if is_postgres:
             db.session.execute(db.text(
-                "ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS avatar_style VARCHAR(50) DEFAULT 'adventurer'"
+                "ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS avatar_style VARCHAR(50) DEFAULT 'adventurer-neutral'"
             ))
             db.session.execute(db.text(
                 "ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS avatar_seed VARCHAR(100)"
@@ -96,7 +96,7 @@ with app.app_context():
             cols = [row[1] for row in result]
             if 'avatar_style' not in cols:
                 db.session.execute(db.text(
-                    "ALTER TABLE \"user\" ADD COLUMN avatar_style VARCHAR(50) DEFAULT 'adventurer'"
+                    "ALTER TABLE \"user\" ADD COLUMN avatar_style VARCHAR(50) DEFAULT 'adventurer-neutral'"
                 ))
             if 'avatar_seed' not in cols:
                 db.session.execute(db.text(
@@ -127,6 +127,10 @@ with app.app_context():
                 db.session.execute(db.text(
                     "ALTER TABLE attendance ADD COLUMN service_type VARCHAR(30)"
                 ))
+        # Corrige usuários que ficaram com o padrão 'adventurer' antigo
+        db.session.execute(db.text(
+            "UPDATE \"user\" SET avatar_style = 'adventurer-neutral' WHERE avatar_style = 'adventurer'"
+        ))
         db.session.commit()
     except Exception as e:
         db.session.rollback()
@@ -614,7 +618,7 @@ AVATAR_SEEDS = [
 @login_required
 def profile_avatar():
     if request.method == 'POST':
-        style = request.form.get('avatar_style', 'adventurer')
+        style = request.form.get('avatar_style', 'adventurer-neutral')
         seed  = request.form.get('avatar_seed', current_user.username).strip()
         # Validar estilo
         valid_styles = [s['id'] for s in AVATAR_STYLES]
@@ -633,7 +637,7 @@ def profile_avatar():
     return render_template(
         'avatar.html',
         styles=AVATAR_STYLES,
-        current_style=current_user.avatar_style or 'adventurer',
+        current_style=current_user.avatar_style or 'adventurer-neutral',
         current_seed=current_user.avatar_seed or current_user.username,
     )
 

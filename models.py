@@ -23,7 +23,7 @@ class User(UserMixin, db.Model):
     @property
     def avatar_url(self):
         seed = self.avatar_seed or self.username
-        style = self.avatar_style or 'adventurer'
+        style = self.avatar_style or 'adventurer-neutral'
         if style.endswith('-neutral'):
             # Cor determinística baseada no seed (consistente para o mesmo usuário)
             color_index = sum(ord(c) for c in seed) % len(self.NEUTRAL_BG_COLORS)
