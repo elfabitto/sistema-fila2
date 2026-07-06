@@ -226,17 +226,13 @@ def index():
     if current_user.is_admin:
         return redirect(url_for('admin'))
     
-    # Pegar a fila completa ordenada por tempo de entrada
-    queue_list = Queue.query.order_by(Queue.entered_at.asc()).all()
+    # Pegar a fila completa ordenada por horário de entrada
+    queue_list = Queue.query.order_by(Queue.first_entered_at.asc()).all()
     
     # Verificar se o usuário está na fila
     user_entry = Queue.query.filter_by(user_id=current_user.id).first()
     
-    # Quem está na vez? O primeiro da fila que não está "Analisando" ou o primeiro de todos?
-    # Segundo o requisito: "O próximo disponível já fica na vez"
-    current_turn_entry = Queue.query.filter_by(status='Disponível').order_by(Queue.entered_at.asc()).first()
-    
-    return render_template('index.html', queue=queue_list, user_entry=user_entry, turn_user=current_turn_entry)
+    return render_template('index.html', queue=queue_list, user_entry=user_entry)
 
 @app.route('/join_queue', methods=['POST'])
 @login_required
@@ -286,6 +282,7 @@ SERVICE_TYPES = {
 @login_required
 def start_task():
     entry = Queue.query.filter_by(user_id=current_user.id).first()
+    # Qualquer usuário na fila pode iniciar a qualquer momento (sem restrição de vez)
     if entry and entry.status == 'Disponível':
         service_type = request.form.get('service_type', '')
         if service_type not in SERVICE_TYPES:
@@ -322,9 +319,9 @@ def finish_task():
             delta = attendance.finished_at - attendance.started_at
             attendance.duration_seconds = int(delta.total_seconds())
         
-        # Voltar para o fim da fila
+        # Volta para Disponível mantendo o horário de entrada original (sem mover para o fim)
         entry.status = 'Disponível'
-        entry.entered_at = get_brt_time()
+        entry.service_type = None
         db.session.commit()
         
         socketio.emit('update_queue')

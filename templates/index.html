@@ -272,60 +272,21 @@
   </div>
   {% endif %}
 
-  <!-- CASO 2: AGUARDANDO -->
+  <!-- CASO 2: DISPONÍVEL NA FILA (pode iniciar a qualquer momento) -->
   {% if user_entry and user_entry.status == 'Disponível' %}
 
-  {% if turn_user and turn_user.user_id == current_user.id %}
-
-  <!-- É A SUA VEZ -->
   <div class="vez-card">
-    <div class="card-chip chip-green">▶ É A SUA VEZ</div>
+    <div class="card-chip chip-green">▶ DISPONÍVEL</div>
     <div class="card-name">{{ current_user.username }}</div>
     <div class="btn-row">
       <!-- Abre o modal em vez de enviar diretamente -->
       <button type="button" class="btn-green" id="btn-abrir-modal">INICIAR</button>
-      <form action="{{ url_for('skip_task') }}" method="POST">
-        <button type="submit" class="btn-skip">PULAR</button>
+      <form action="{{ url_for('leave_queue') }}" method="POST" style="display:inline;">
+        <button type="submit" class="btn-sair-fila">SAIR DA FILA</button>
       </form>
     </div>
   </div>
 
-  <div class="popup show" id="popup-turn">
-    <button class="popup-close" onclick="this.parentElement.classList.remove('show')">×</button>
-    <div class="popup-title">▶ SUA VEZ</div>
-    <div class="popup-msg">É a sua vez! Clique em Iniciar para começar.</div>
-  </div>
-
-  {% else %}
-
-  <!-- AGUARDANDO -->
-  {% set posicao = namespace(value=0) %}
-  {% for entry in queue %}
-  {% if entry.user_id == current_user.id %}
-  {% set posicao.value = loop.index %}
-  {% endif %}
-  {% endfor %}
-
-  <div class="aguard-card">
-    <div>
-      <div class="sec-title" style="margin-bottom:0.18rem">Posição na fila</div>
-      <div style="font-size:0.72rem; color:var(--muted)">Aguardando sua vez</div>
-    </div>
-    <div>
-      <div class="pos-num">{{ posicao.value }}°<small>na fila</small></div>
-    </div>
-  </div>
-
-  <div style="text-align:center">
-    <form action="{{ url_for('leave_queue') }}" method="POST" style="display:inline;">
-      <button type="submit" class="btn-sair-fila">Sair da fila</button>
-    </form>
-    <form action="{{ url_for('skip_task') }}" method="POST" style="display:inline; margin-left:0.5rem;">
-      <button type="submit" class="btn-skip">PULAR</button>
-    </form>
-  </div>
-
-  {% endif %}
   {% endif %}
 
   <!-- CASO 3: ANALISANDO -->
@@ -357,11 +318,8 @@
     {% else %}
     {% for entry in queue %}
     <div class="fila-item
-        {% if loop.first and entry.status == 'Disponível' %}vez{% endif %}
         {% if entry.status == 'Analisando' %}analisando{% endif %}
         {% if entry.user_id == current_user.id %}eu{% endif %}">
-
-      <div class="fila-pos">{{ loop.index }}</div>
 
       <!-- Avatar miniatura -->
       <img src="{{ entry.user.avatar_url }}" alt="avatar"
@@ -378,18 +336,14 @@
         </div>
         <div class="fila-hora">⏱ {{ entry.first_entered_at.strftime('%H:%M') if entry.first_entered_at else (entry.entered_at.strftime('%H:%M') if entry.entered_at else '') }}</div>
         <div class="fila-status
-            {% if entry.status == 'Disponível' and loop.first %}green{% endif %}
+            {% if entry.status == 'Disponível' %}green{% endif %}
             {% if entry.status == 'Analisando' %}yellow{% endif %}">
-          {% if loop.first and entry.status == 'Disponível' %}Na vez{% else %}{{ entry.status }}{% endif %}
+          {{ entry.status }}
         </div>
       </div>
 
       {% if entry.user_id == current_user.id %}
       <span class="badge-eu">você</span>
-      {% endif %}
-
-      {% if loop.first and entry.status == 'Disponível' %}
-      <span class="badge-eu" style="background:var(--info-dim); color:var(--info)">NA VEZ</span>
       {% endif %}
 
     </div>
@@ -467,35 +421,7 @@
       .catch(e => console.log('SW falhou:', e));
   }
 
-  var isMyTurn = {{ 'true' if turn_user and turn_user.user_id == current_user.id else 'false' }};
-
-  if (isMyTurn) {
-    if (!localStorage.getItem('notified_turn')) {
-      var audio = document.getElementById('notificationSound');
-      if (audio) audio.play().catch(() => { });
-
-      if (Notification.permission === "granted") {
-        var n = new Notification("{{ current_user.username }}, sua vez!!", {
-          body: "É a sua vez na fila. Inicie sua tarefa.",
-          icon: "{{ current_user.avatar_url }}"
-        });
-        n.onclick = () => window.focus();
-      } else if (Notification.permission !== "denied") {
-        Notification.requestPermission().then(p => {
-          if (p === "granted") {
-            var n = new Notification("{{ current_user.username }}, sua vez!!", {
-              body: "É a sua vez na fila. Inicie sua tarefa.",
-              icon: "{{ current_user.avatar_url }}"
-            });
-            n.onclick = () => window.focus();
-          }
-        });
-      }
-      localStorage.setItem('notified_turn', 'true');
-    }
-  } else {
-    localStorage.removeItem('notified_turn');
-  }
+  // Sem sistema de vez – usuário pode iniciar a qualquer momento
 
   // ── Modal de tipo de atendimento ──
   const modal = document.getElementById('modal-tipo');
